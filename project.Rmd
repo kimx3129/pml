@@ -1,0 +1,93 @@
+---
+title: "Practical Machine Learning Project"
+author: "Sungmin Kim"
+date: "June 14, 2015"
+output: html_document
+---
+
+#Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways.
+
+The goal of this project is to predict the manner in which they did the exercise. We need to predict "classe" variable in the training set. In addition, we compare and contrast different prediction models with diverse diagnosis.
+
+#Loading required packages
+First of all, it is not required, but efficient to load all packages in advance before doing further analysis. 
+```{r}
+library(caret)
+library(rattle)
+library(ggplot2)
+library(rpart)
+library(randomForest)
+```
+
+#Getting and cleansing Data
+If files do not exist in the data folder, download them from the website and save into the data folder. Otherwise, this function will throw an exception and we may expect to see an error message saying that we already have those files. For reproducibility, everyone can obtain those files and conduct the analysis easily. 
+```{r}
+if(!file.exists("./data/pml-training.csv")){
+  download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+                destfile = "./data/pml-training.csv", method = "curl")
+}
+
+if(!file.exists("./data/pml-testing.csv")){
+  download.file(url = "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+                destfile = "./data/pml-testing.csv", method = "curl")
+}
+```
+
+After download files, we need to open them and investigate them thoroughly.
+```{r}
+data <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+testData <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+dim(data)
+```
+
+We have such huge datasets, which is not necessary for our prediction models. First of all, any columns having a lot of NA values or non-related information should be excluded. Then we need to seperate data into training and test set. In our case we put 70 percent of original data into a training set and 30 percent into a test set. 
+```{r}
+data <- data[, -c(1:7)] # non-related columns
+filterVal <- apply(data, 2, function(x){ sum(is.na(x))})
+data <- data[, which(filterVal == 0)] # filtered out NA columns
+dim(data)
+
+testData <- testData[, -c(1:7)] # same as above
+filterVal2 <- apply(testData, 2, function(x){ sum(is.na(x))})
+testData <- testData[, which(filterVal2 == 0)] # same as above
+
+inTrain <- createDataPartition(y = data$classe, p = 0.7, list = FALSE)
+training <- data[inTrain, ]; testing <- data[-inTrain, ]
+dim(training); dim(testing)
+```
+
+#Build a prediction model(Decision Tree)
+
+Here, we build a prediction model with tree and plot it with fancier version. 
+```{r}
+modFit <- train(classe ~ ., method = "rpart", data = training)
+print(modFit$finalModel)
+fancyRpartPlot(modFit$finalModel)
+```
+
+Since we have our prediction model, we can use our test case to check the model accuracy.
+```{r}
+predictions <- predict(modFit, newdata = testing)
+confusionMatrix(predictions, testing$classe)
+```
+According to the confusionMatrix, only class A could be predicted accurately. In other words, we may 
+In classification tree, we have lower than 50% accuracy, which has higher sample error rate. 
+
+#Build a prediction model(Random Forest)
+
+Here we use Random Forest to create another prediction model and to see how accurately it predicts compared to the previous one. 
+```{r}
+modFit2 <- randomForest(classe ~ ., data = training, importance = TRUE, ntree = 100)
+```
+
+Now we predict a testing set and create a confusion matrix to visualize how well our model accurately predicts. 
+```{r}
+predictions2 <- predict(modFit2, newdata = testing)
+confusionMatrix(predictions2, testing$classe)
+```
+
+We have about 99% accuracy(less than 1% sample error rate) with Random Forest. This is remarkably more accurate compate to our first prediction model. 
+
+#Conclusion
+We successfully predicted a 'Classe' value from our testing set and can conclude that Random Forest yields more accurate predictions as opposed to the classification tree model. Although Random Forest might cause some overfitting issue and is a slower algorithm, it is pretty accurate and more useful to predict with non-linear regressions such as our problem. Classification tree would be better for predicting binary decision.  
