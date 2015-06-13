@@ -1,2 +1,2 @@
-# pml
-Practical Machine Learning Project
+# Practical Machine Learning Project
+-Sungmin Kim
